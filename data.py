@@ -29,11 +29,6 @@ def getData():
 
 
 
-a = getData()
-
-for i,j in a.items():
-    if i.startswith("fivb_world_league_head_to_head"):
-        print j
         
         
         

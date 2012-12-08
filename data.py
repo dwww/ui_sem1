@@ -50,13 +50,10 @@ def presipaj(fun, ind):
 
 def vrniStand():
     
-    stand = [[i.strip().split(" ") for i in open("data/"+ime).readlines()] for ime in standings]
+    stand = [[i.strip().split(" ") for i in open("data/"+ime).readlines()[1:]] for ime in standings]
         
     for i in range(len(stand)): #s pomikanjem po tabeli se teza podatkov niza
-        stand[i] = stand[i][1:len(stand)]
         for j in range(len(stand[i])):
-            for n in range(len(stand[i][j])):
-                if "-" in stand[i][j][n]: stand[i][j][n] = "-1" #iz - spremeni v -1 
             print stand[i][j]
     return stand
 
@@ -96,17 +93,15 @@ def vrniStat():
 
 def vrniTekme():
 
-    pod = [[i.strip().split("\t") for i in open("data/"+ime).readlines()] for ime in tekme]
+    vseTekme = [[i.strip().split("\t") for i in open("data/"+ime).readlines()[1:]] for ime in tekme]
     
-    for i in range(len(pod)):
-        pod[i] = pod[i][1:len(pod[i])]
-        for j in range(len(pod[i])):
-            for n in range(len(pod[i][j])):
-                if "-" in pod[i][j][n]: pod[i][j][n] = pod[i][j][n].split("-")
-                if "NA" in pod[i][j][n]: pod[i][j][n] = ["0","0"] #namesto rezultata NA da 0 : 0  
-            
-            pod[i][j] = pod[i][j][3:11] 
-            print pod[i][j]
-    return pod
+    for tekma in vseTekme:
+        for vrstica in tekma:
+            for i in range(len(vrstica)):
+                vrstica[i] = vrstica[i].split("-")
+                if "NA" in vrstica[i]: 
+                    vrstica[i] = ["0","0"] #namesto rezultata NA da 0 : 0  
+            print vrstica
+    return vseTekme
 
 #presipaj(vrniStand(), range(5))

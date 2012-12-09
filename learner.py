@@ -99,7 +99,7 @@ testC = [data.urediTekmo(tekma)[1][0] for tekma in testTekme]
 napovedi = []
 tocnosti = []
 for f in [rf, bayes, knn, tree, svm]:
-    rfRes = crossVal(trainD, trainC,  f, 4)
+    rfRes = crossVal(trainD, trainC,  f, 6)
     
     napovedi.append(rfRes)
     

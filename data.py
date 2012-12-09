@@ -5,9 +5,10 @@ data loader
 from collections import defaultdict
 
 def split(line):
+    line = line.replace("\t"," ")
     while line.find("  ") != -1:
         line = line.replace("  "," ")
-    return line.replace("\t"," ").strip().split(" ")
+    return line.strip().split(" ")
 
 def vrniDatum(datum):
     mes = {"Jan" : "01", "Feb" : "02", "Mar" : "03", "Apr" : "04", "May" : "05", "Jun" : "06", "Jul" : "07", "Aug" : "08", "Sep" : "09", "Oct" : "10", "Nov" : "11", "Dec" : "12"}
@@ -140,6 +141,9 @@ def getRazmirje(ekipa, datum):
     
     zmage = [jeZmagal(i, ekipa) for i in flat]
     
+    if len(zmage) == 0:
+        return 0
+    
     return float(sum(zmage))/len(zmage)
 
 
@@ -174,6 +178,10 @@ def zmagalZadnjo(ekipa, nEkipa, datum):
     flat = [i for i in flat if set(i['Teams'].split('-')) == set([ekipa, nEkipa])]
     
     flat = sorted(flat, key = lambda x : x['Date'])
+    
+    if len(flat) == 0:
+        return 0
+    
     
     zadna  = flat[-1]
     return jeZmagal(zadna, ekipa)
@@ -222,15 +230,15 @@ def getTeamData(ekipa, nEkipa, datum):
     teamD = {}
     for d, el in stat[ekipa].items():
         for name, item in el.items():
-            teamD["stat-%d-%s" % (d,name)] = item if d <= datum else "-"
+            teamD["stat-%d-%s" % (d,name)] = item if d <= datum else 0
     
     for d, el in rank[ekipa].items():
         for name, item in el.items():
-            teamD["rank-%d-%s" % (d,name)] = item if d <= datum else "-"
+            teamD["rank-%d-%s" % (d,name)] = item if d <= datum else 500
         
     for d, el in head[ekipa].items():
         for name, item in el.items():
-            teamD["head-%d-%s" % (d,name)] = item if d <= datum else "-"
+            teamD["head-%d-%s" % (d,name)] = item if d <= datum else 500
     
     for imeTekmovanja, std in stand.items():
         if ekipa in std:
@@ -256,9 +264,14 @@ def getTeamData(ekipa, nEkipa, datum):
     teamD["rank-zgube-points"] = tockeL
     teamD["rank-razmerje-points"] = tockeW - tockeL
     
-    return teamD
+    
+    
+    return {key : str(value).replace('-','0') for key,value in teamD.items()}
     
 def urediTekmo(tekma):
+    lines = []
+    result = []
+    
     team = tekma["Teams"].split("-")
     datum = tekma["Date"]
     
@@ -266,24 +279,34 @@ def urediTekmo(tekma):
     teamB = getTeamData(team[1], team[0], datum)
 
     
-    line = [teamA[k] for k in keys] + [teamB[k] for k in keys]
+    line = [teamA[k] if k in teamA else '0' for k in keys] + [teamB[k] if k in teamB else '0' for k in keys]
     
     line.append(tekma['Audience'])
     line.append(tekma['Host'] == team[0])
     line.append(tekma['Host'] == team[1])
     line.append(tekma['Date'])
+    line.append(0)
+    line.append(0)
+    
+    lines.append(list(line))
+    
+    
+    p = tekma['Points'].split('-')
+    line[-2] = p[0]
+    line[-1] = p[1]
+    
+    lines.append(list(line))
+    
     
     r = map(int,tekma['Result'].split('-'))
     res = [jeZmagal(tekma, team[0]) , r[0]-r[1]]
     
-    lines = []
-    result = []
-    lines.append(list(line))
-    result.append()
+    result.append(list(res))
+    result.append(list(res))
+
+
+    #sets = [tekma['Set%d' % i ].replace("NA","0-0").split('-') for i in range(1,6)]
     
-    print keys
-    print line
-    print result
     return lines , result
 
 

@@ -132,13 +132,31 @@ rank = vrniRank()
 head = vrniHead()
 stand = vrniStand()
 
-#def urediTekmo(tekma):
+def getTeamData(ekipa, datum):
+    
+    teamD = {}
+    for d, el in stat[ekipa].items():
+        for name, item in el.items():
+            teamD["stat-%d-%s" % (d,name)] = item if d <= datum else "-"
+    
+    for d, el in rank[ekipa].items():
+        for name, item in el.items():
+            teamD["rank-%d-%s" % (d,name)] = item if d <= datum else "-"
+    
+    for d, el in head[ekipa].items():
+        for name, item in el.items():
+            teamD["head-%d-%s" % (d,name)] = item if d <= datum else "-"
     
     
-
-
-
-
+    
+    return teamD
+    
+def urediTekmo(tekma):
+    team = tekma["Teams"].split("-")
+    do = tekma["Date"]
+    
+    teamA = getTeamData(team[0], do)
+    teamB = getTeamData(team[1], do)
 
 
 

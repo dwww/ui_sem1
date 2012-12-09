@@ -6,6 +6,14 @@ from random import random
 reload(data)
 reload(funkcije)
 
+def reliefFilter(trainD, trainC):
+    orangeData = funkcije.listToOrangeSingleClass(trainD, trainC)
+    meas = Orange.feature.scoring.Relief()
+    mr = [ (a.name, meas(a, orangeData)) for a in orangeData.domain.attributes]
+    mr.sort(key=lambda x: -x[1]) #sort decreasingly by the score
+    return [i[0] for i in mr]
+
+
 def getProb(trainD, trainC, testD , lrn):
     orangeData = funkcije.listToOrangeSingleClass(trainD+testD, trainC+[0]*len(testD))
     ind = [1]*len(trainD)+[0]*len(testD)
@@ -21,25 +29,31 @@ def knn(trainD, trainC, testD):
     return getProb(trainD, trainC, testD, knnLearner)
 
 def rf(trainD, trainC, testD):
-    orangeData = funkcije.listToOrangeSingleClass(trainD+testD, trainC+[0]*len(testD))
-    ind = [1]*len(trainD)+[0]*len(testD)
-    orangeTrainD = orangeData.select_ref(ind,1)
-    orangeTestD = orangeData.select_ref(ind,0)
-
     rfLearner = Orange.ensemble.forest.RandomForestLearner(trees = 50, name = "forest" )
-    cl = rfLearner(orangeTrainD)
-    return [cl(i, Orange.classification.Classifier.GetProbabilities)[True] for i in orangeTestD]
-
+    return getProb(trainD, trainC, testD, rfLearner)
 
 def bayes(trainD, trainC, testD):
-    orangeData = funkcije.listToOrangeSingleClass(trainD+testD, trainC+[0]*len(testD))
-    ind = [1]*len(trainD)+[0]*len(testD)
-    orangeTrainD = orangeData.select_ref(ind,1)
-    orangeTestD = orangeData.select_ref(ind,0)
-    
     bayesLearner = Orange.classification.bayes.NaiveLearner(name="naiveBayes")
-    cl = bayesLearner(orangeTrainD)
-    return [cl(i,  Orange.classification.Classifier.GetProbabilities)[True] for i in orangeTestD]
+    return getProb(trainD, trainC, testD, bayesLearner)
+
+def filterArr(a,ind):
+    a = np.array(a)
+    return list(a.T[ind].T)
+
+def svm(trainD, trainC, testD):
+    ind = reliefFilter(trainD, trainC)[:50]
+    trainD = filterArr(trainD, ind)
+    testD = filterArr(testD, ind)
+    bayesLearner = Orange.classification.svm.SVMLearner(name="svm")
+    return getProb(trainD, trainC, testD, bayesLearner)
+
+def tree(trainD, trainC, testD):
+    bayesLearner = Orange.classification.tree.TreeLearner(name="tree")
+    return getProb(trainD, trainC, testD, bayesLearner)
+
+def logReg(trainD, trainC, testD):
+    bayesLearner = Orange.classification.logreg.LogRegLearner(remove_singular=1, name="logreg")
+    return getProb(trainD, trainC, testD, bayesLearner)
 
 
 def crossVal(data, razred, predictor, k = 10):
@@ -60,70 +74,55 @@ def tocnost(napovedi, razred):
  
 def probToClass(trainC, testC):
     procentEnk = 1.*sum(trainC)/len(trainC)
-    mejaZaPoz = sorted(testC)[int((1-procentEnk)*len(trainC))]
+    mejaZaPoz = sorted(testC)[int((1-procentEnk)*len(testC))]
     return [int(i > mejaZaPoz) for i in testC]
        
 
 
 
 tekme = data.vrniTekme()
-stat = data.vrniStat()
-rank = data.vrniRank()
-head = data.vrniHead()
-stand = data.vrniStand()
-
-keys = sorted(data.getAllKeys())
+testTekme = data.vrniTestData()
 
 trainD = []
-klas = []
-reg = []
+trainC = []
 
 for tekmovanja in tekme.values():
     for tekma in tekmovanja:
         D, R = data.urediTekmo(tekma)
-        trainD += D
-        klas.append(R[0][0])
-        klas.append(R[1][0])
-        reg += [R[0][1], R[1][1]]
+        trainD.append(D)
+        trainC.append(R[0])
 
-    
-#data = [[int(random()*6) for j in range(100)] for i in range(2000)]
-#razred = [int(random()*(i[0]+i[1]) > 7 or i[5]==2 or i[7]*2 < i[4]) for i in data]
 
-#for i in range(len(data)):
-#    print data[i],razred[i]
+testD = [data.urediTekmo(tekma)[0] for tekma in testTekme]
+testC = [data.urediTekmo(tekma)[1][0] for tekma in testTekme]
 
 napovedi = []
 tocnosti = []
-for f in [rf, bayes, knn]:
-    rfRes = crossVal(trainD, klas,  f, 4)
+for f in [rf, bayes, knn, tree, svm]:
+    rfRes = crossVal(trainD, trainC,  f, 4)
     
     napovedi.append(rfRes)
     
-    tocnosti.append(tocnost(probToClass(klas, rfRes), klas))
+    tocnosti.append(tocnost(probToClass(trainC, rfRes), trainC))
     print tocnosti[-1]
     
-tocnosti = np.array(tocnosti)
-napovedi = np.array(napovedi)
-
+tocnosti = np.array(tocnosti)**3
 tocnosti = tocnosti / tocnosti.sum()
-
+napovedi = np.array(napovedi)
 utezenaNapoved = list(napovedi.T.dot(tocnosti))
 
-print tocnost(probToClass(klas, utezenaNapoved), klas)
-
-#knnRes = crossVal(data, razred,  rf, 10)
-#
-#crossValRes = [knnRes[i]*0.5+bayesRes[i]*0.5 for i in range(len(knnRes))]
-#
-#
-#for i,res in enumerate(crossValRes):
-#    print "tocno/napoved: %4d/%d    %.5f" % (razred[i],napovedi[i],res)
-#
-#print tocnost(napovedi, razred)
-#
-#dataOrange = funkcije.listToOrangeSingleClass(data, razred)
+print tocnost(probToClass(trainC, utezenaNapoved), trainC)
 
 
+napovedi = []
+for f in [rf, bayes, knn, tree, svm]:
+    rfRes = f(trainD, trainC, testD)
+    
+    napovedi.append(rfRes)
+
+napovedi = np.array(napovedi)
+utezenaNapoved = list(napovedi.T.dot(tocnosti))
+
+print tocnost(probToClass(trainC, utezenaNapoved), testC)
 
 

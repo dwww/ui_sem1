@@ -127,6 +127,21 @@ def vrniTekme():
             result[imeT].append({glava[i] : el for i, el in enumerate(line)})
     
     return result
+    
+def vrniTestData():
+    ime = "test_data.txt".strip()
+    
+    result = defaultdict(list)
+    
+    f = open("data/"+ime)
+    imeT = "testD"
+    glava = split(f.readline())
+    lines = [split(i) for i in f.readlines()]
+    for line in lines:
+        line[2] = vrniDatum(line[2])
+        result[imeT].append({glava[i] : el for i, el in enumerate(line)})
+    
+    return result[imeT]
 
 def jeZmagal(tekma, ekipa):
     rez = map(int, tekma["Result"].split('-'))
@@ -268,9 +283,7 @@ def getTeamData(ekipa, nEkipa, datum):
     
     return {key : str(value).replace('-','0') for key,value in teamD.items()}
     
-def urediTekmo(tekma):
-    lines = []
-    result = []
+def urediTekmo(tekma, tocke=True, seti = 0):
     
     team = tekma["Teams"].split("-")
     datum = tekma["Date"]
@@ -285,29 +298,27 @@ def urediTekmo(tekma):
     line.append(tekma['Host'] == team[0])
     line.append(tekma['Host'] == team[1])
     line.append(tekma['Date'])
-    line.append(0)
-    line.append(0)
     
-    lines.append(list(line))
+    if tocke:
+        line.append(0)
+        line.append(0)
+        p = tekma['Points'].split('-')
+        line[-2] = p[0]
+        line[-1] = p[1]
     
+    for i in range(1,seti):
+        ss = tekma['Set%d' % i ].replace("NA","0-0").split('-')
+        line.append(ss[0])
+        line.append(ss[1])
     
-    p = tekma['Points'].split('-')
-    line[-2] = p[0]
-    line[-1] = p[1]
-    
-    lines.append(list(line))
     
     
     r = map(int,tekma['Result'].split('-'))
     res = [jeZmagal(tekma, team[0]) , r[0]-r[1]]
     
-    result.append(list(res))
-    result.append(list(res))
 
-
-    #sets = [tekma['Set%d' % i ].replace("NA","0-0").split('-') for i in range(1,6)]
     
-    return lines , result
+    return line , res
 
 
 

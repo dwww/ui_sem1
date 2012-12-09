@@ -33,6 +33,7 @@ def vrniStand():
             d["N"] = vrstica[1]
             country[vrstica[0]] = d
         result[dIme] = country
+        
     return result
 
 
@@ -126,13 +127,97 @@ def vrniTekme():
     
     return result
 
-tekme = vrniTekme()
-stat = vrniStat()
-rank = vrniRank()
-head = vrniHead()
-stand = vrniStand()
+def jeZmagal(tekma, ekipa):
+    rez = map(int, tekma["Result"].split('-'))
+    ind = rez.index(max(rez))
+    
+    return int(ekipa == tekma["Teams"].split('-')[ind])
 
-def getTeamData(ekipa, datum):
+def getRazmirje(ekipa, datum):
+    flat = tekme['league'] + tekme['championship'] + tekme['cup']
+    flat = [i for i in flat if i['Date'] < datum]
+    flat = [i for i in flat if ekipa in set(i['Teams'].split('-')) ]
+    
+    zmage = [jeZmagal(i, ekipa) for i in flat]
+    
+    return float(sum(zmage))/len(zmage)
+
+
+def getRangZmage(ekipa, datum):
+    flat = tekme['league'] + tekme['championship'] + tekme['cup']
+    flat = [i for i in flat if i['Date'] < datum]
+    flat = [i for i in flat if ekipa in set(i['Teams'].split('-')) ]
+    
+    tocke_w = 0
+    tocke_l = 0
+    for tekma in flat:
+        nEkipa = set(tekma['Teams'].split('-'))
+        nEkipa.remove(ekipa)
+        nEkipa = nEkipa.pop()
+        nTocke = float(sorted([(d,i) for d, i in rank[nEkipa].items() if d <= datum ])[-1][1]["Points"])
+        tocke_w += nTocke if jeZmagal(tekma, ekipa) == 1  else 0
+        tocke_l += 0 if jeZmagal(tekma, ekipa) == 1  else nTocke
+    
+    return (tocke_w, tocke_l)
+
+def getSteviloTekem(ekipa, datum):    
+    flat = tekme['league'] + tekme['championship'] + tekme['cup']
+    flat = [i for i in flat if i['Date'] < datum]
+    flat = [i for i in flat if ekipa in set(i['Teams'].split('-')) ]
+        
+    return len(flat)
+
+def zmagalZadnjo(ekipa, nEkipa, datum):
+    flat = tekme['league'] + tekme['championship'] + tekme['cup']
+    
+    flat = [i for i in flat if i['Date'] < datum]
+    flat = [i for i in flat if set(i['Teams'].split('-')) == set([ekipa, nEkipa])]
+    
+    flat = sorted(flat, key = lambda x : x['Date'])
+    
+    zadna  = flat[-1]
+    return jeZmagal(zadna, ekipa)
+
+def getAllKeys():
+    keys = set()
+    for s in stat.values():
+        for d, el in s.items():
+            for name in el.keys():
+                keys.add("stat-%d-%s" % (d,name))
+    
+    for r in rank.values():
+        for d, el in r.items():
+            for name in el.keys():
+                keys.add("rank-%d-%s" % (d,name))
+    
+    
+    for d, el in head["ARG"].items():
+        for name in el.keys():
+            keys.add("head-%d-%s" % (d,name))
+
+    
+    for imeTekmovanja, std in stand.items():
+        for ekipa in std.keys():
+            for d, el in std[ekipa].items():
+                keys.add("standings-%s-%s" % (imeTekmovanja, str(d)))
+
+    keys.add("rank-points-sum")
+    keys.add("rank-rank-sum")
+    
+    keys.add("head-zmage")
+    keys.add("head-zgube")
+
+    keys.add("zmagal-zadnjo")
+    keys.add("razmerje-zmag")
+    keys.add("stevilo-tekem")
+    
+    keys.add("rank-zmage-points")
+    keys.add("rank-zgube-points")
+    keys.add("rank-razmerje-points")
+                
+    return keys
+
+def getTeamData(ekipa, nEkipa, datum):
     
     teamD = {}
     for d, el in stat[ekipa].items():
@@ -142,31 +227,75 @@ def getTeamData(ekipa, datum):
     for d, el in rank[ekipa].items():
         for name, item in el.items():
             teamD["rank-%d-%s" % (d,name)] = item if d <= datum else "-"
-    
+        
     for d, el in head[ekipa].items():
         for name, item in el.items():
             teamD["head-%d-%s" % (d,name)] = item if d <= datum else "-"
     
+    for imeTekmovanja, std in stand.items():
+        if ekipa in std:
+            for d, el in std[ekipa].items():
+                teamD["standings-%s-%s" % (imeTekmovanja, str(d))] = el if d <= datum else "-"
     
+    teamD["rank-points-sum"] = sum([float(i["Points"]) for d,i in rank[ekipa].items() if d < datum])
+    teamD["rank-rank-sum"] = sum([int(i["Rank"]) for d,i in rank[ekipa].items() if d < datum])
+    
+
+    #st zmag proti ekipi
+    
+    teamD["head-zmage"] = sum([int(j) for d, el in head[ekipa].items() for i,j in el.items() if d <= datum if i == "%s_W" % (nEkipa)])
+    teamD["head-zgube"] = sum([int(j) for d, el in head[ekipa].items() for i,j in el.items() if d <= datum if i == "%s_L" % (nEkipa)])
+    
+
+    teamD["zmagal-zadnjo"] = zmagalZadnjo(ekipa, nEkipa, datum)
+    teamD["razmerje-zmag"] = getRazmirje(ekipa, datum)
+    teamD["stevilo-tekem"] = getSteviloTekem(ekipa, datum)
+    
+    tockeW, tockeL = getRangZmage(ekipa, datum)
+    teamD["rank-zmage-points"] = tockeW
+    teamD["rank-zgube-points"] = tockeL
+    teamD["rank-razmerje-points"] = tockeW - tockeL
     
     return teamD
     
 def urediTekmo(tekma):
     team = tekma["Teams"].split("-")
-    do = tekma["Date"]
+    datum = tekma["Date"]
     
-    teamA = getTeamData(team[0], do)
-    teamB = getTeamData(team[1], do)
+    teamA = getTeamData(team[0], team[1], datum)
+    teamB = getTeamData(team[1], team[0], datum)
+
+    
+    line = [teamA[k] for k in keys] + [teamB[k] for k in keys]
+    
+    line.append(tekma['Audience'])
+    line.append(tekma['Host'] == team[0])
+    line.append(tekma['Host'] == team[1])
+    line.append(tekma['Date'])
+    
+    r = map(int,tekma['Result'].split('-'))
+    res = [jeZmagal(tekma, team[0]) , r[0]-r[1]]
+    
+    lines = []
+    result = []
+    lines.append(list(line))
+    result.append()
+    
+    print keys
+    print line
+    print result
+    return lines , result
 
 
 
 
 
 
+tekme = vrniTekme()
+stat = vrniStat()
+rank = vrniRank()
+head = vrniHead()
+stand = vrniStand()
 
-
-
-
-
-
+keys = sorted(getAllKeys())
 
